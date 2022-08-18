@@ -25,7 +25,9 @@ class SellerVoucher {
     nftAddress: any,
     owner: any,
     tokenID: any,
+    amount: any,
     minPrice: any,
+    counter: any,
     isFixedPrice: any,
     isCustodial: any
   ) {
@@ -33,7 +35,9 @@ class SellerVoucher {
       nftAddress,
       owner,
       tokenID,
+      amount,
       minPrice,
+      counter,
       isFixedPrice,
       isCustodial,
     };
@@ -43,7 +47,9 @@ class SellerVoucher {
         { name: "nftAddress", type: "address" },
         { name: "owner", type: "address" },
         { name: "tokenID", type: "uint256" },
+        { name: "amount", type: "uint256" },
         { name: "minPrice", type: "uint256" },
+        { name: "counter", type: "uint256" },
         { name: "isFixedPrice", type: "bool" },
         { name: "isCustodial", type: "bool" },
       ],

@@ -12,5 +12,5 @@ interface ISFTTemplate is IERC1155Upgradeable, IERC2981
     function initialize(string memory uri, address _creator, address _admin, address _token, address _factory) external ;
 
     function supportsInterface(bytes4 interfaceId) override(IERC165Upgradeable,IERC165) external view returns (bool);
-    function redeem(Voucher.SFTvoucher calldata _voucher, address redeemer) external;
+    function redeem(Voucher.SFTvoucher calldata _voucher, address redeemer, uint amount) external;
 }

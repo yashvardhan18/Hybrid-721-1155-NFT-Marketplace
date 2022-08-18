@@ -9,17 +9,13 @@ interface INFTTemplate is IERC721Upgradeable, IERC2981
     function creator() external returns(address);
     function admin() external returns(address);
     
-    function initialize(string memory name ,string memory symbol,address _creator,address _admin, address token, address _factory)external ;
-    function transferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) external  override;
+    function initialize(string memory name ,string memory symbol,address _admin,address _superAdmin, address token, address _marketplace)external ;
 
     // function _bulkMint(address[] memory _to,uint256[] memory _tokenIds,string[] memory _tokenURIs, address[] memory _royaltyOwners, uint96[] memory _royalties)external;
     // function _bulkTransfer(address[]memory _from,address[] memory _to, uint[] memory _tokenIDs) external;
     function supportsInterface(bytes4 interfaceId) override(IERC165Upgradeable,IERC165) external view returns (bool);
-    function redeem(Voucher.NFTvoucher calldata _voucher, address redeemer) external;
+    function redeem(Voucher.SFTvoucher calldata _voucher, address redeemer) external;
+    function transferFrom(address from,address to,uint256 tokenId) external override;
    
     function exists(uint tokenId) external view returns(bool);
 }

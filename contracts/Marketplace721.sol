@@ -1,22 +1,20 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.14;
 
-import "./CustomAccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "./Relayer/BasicMetaTransaction.sol";
 import "./interfaces/INFTTemplate.sol";
 
-contract HeftyVerseMarketplace721 is EIP712, CustomAccessControl, BasicMetaTransaction {
-    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+contract HeftyVerseMarketplace721 is EIP712, BasicMetaTransaction {
 
     struct HeftyVerseSeller{
         address nftAddress;     // Address of the NFT contract
         address owner;          // Owner of the NFT
         uint256 tokenID;        // Token ID of the NFT
+        uint256 amount;
         uint256 minPrice;       // Minimum secondary sale price of the NFT
+        uint256 counter;
         bool isFixedPrice;      // Bool to check if it is fixed price sale or auction
         bool isCustodial;       // Bool to check if the wallet is custodial or non-custodail
         bytes signature;        // Signature created after signing HeftyVerseSeller
@@ -26,7 +24,9 @@ contract HeftyVerseMarketplace721 is EIP712, CustomAccessControl, BasicMetaTrans
         address nftAddress;     // Address of the NFT contract
         address buyer;          // Address of the buyer of the NFT
         uint256 tokenID;        // Token ID of the NFT
+        uint256 amount;
         uint256 pricePaid;      // Price paid for the NFT
+        uint256 counter;
         bool isCustodial;       // Bool to check if the wallet is cutodial or not
         bytes signature;        // Signature created after signing HeftyVerseSeller
     }
@@ -47,27 +47,25 @@ contract HeftyVerseMarketplace721 is EIP712, CustomAccessControl, BasicMetaTrans
     uint public marketFee = 200;
 
     event AmountDistributed(address indexed buyer, uint amountPaid, uint royaltyPaid, uint marketFeePaid);
-
     event TokenWithdrawn(uint256 _amount);
 
     /**
-     * @dev sets 'owner' address as Default Admin and sets addresses for 
-       marketFee wallet, treasury and token.
-     *@param _owner address is set Default Admin.
-     * @param _marketWallet address is marketFee wallet.
-     * @param _token address for ERC20 token.
-     * @param _treasury address is for treasury. 
+     * @dev Initializes the contract by setting a `owner`, `marketingWallet`, `treasury` and `token` for the marketplace
+     * @param _owner is set as the owner for Marketplace contract
+     * @param _marketWallet is set as the wallet for marketplace fee
+     * @param _token is set as the token using which NFTs will be bought
+     * @param _treasury is set as the address from which funds will be used during custodial buy.
      */
     constructor(address _owner, address _marketWallet, address _token, address _treasury) EIP712("Heftyverse_MarketItem","1"){
-        _setupRole(DEFAULT_ADMIN_ROLE, _owner);
+        admin = _owner;
         marketWallet = _marketWallet;
         treasury = _treasury;
         token = IERC20(_token);
     }
 
     /**
-    *@dev makes hash of seller voucher.
-    *@param seller is of data type HeftyVerseSeller struct.
+     * @notice Returns a hash of the given HeftyVerseSeller, prepared using EIP712 typed data hashing rules.
+     * @param seller is a HeftyVerseSeller to hash.
      */
     function _hashSeller(HeftyVerseSeller memory seller)
         internal
@@ -79,23 +77,26 @@ contract HeftyVerseMarketplace721 is EIP712, CustomAccessControl, BasicMetaTrans
                 keccak256(
                     abi.encode(
                         keccak256(
-                            "HeftyVerseSeller(address nftAddress,address owner,uint256 tokenID,uint256 minPrice,bool isFixedPrice,bool isCustodial)"
+                            "HeftyVerseSeller(address nftAddress,address owner,uint256 tokenID,uint256 amount,uint256 minPrice,uint256 counter,bool isFixedPrice,bool isCustodial)"
                         ),
                         seller.nftAddress,
                         seller.owner,
                         seller.tokenID,
+                        seller.amount,
                         seller.minPrice,
+                        seller.counter,
                         seller.isFixedPrice,
                         seller.isCustodial
                     )
                 )
             );
     }
+
     /**
-    @notice Verifies the signature for a given HeftyVerseSeller, returning the address of the signer.
-    @dev Will revert if the signature is invalid. Does not verify that the signer is owner of the NFT.
-    @param seller is of data type HeftyVerseSeller struct.
-      */
+     * @notice Verifies the signature for a given HeftyVerseSeller, returning the address of the signer.
+     * @dev Will revert if the signature is invalid. Does not verify that the signer is owner of the NFT.
+     * @param seller is a HeftyVerseSeller describing the NFT to be sold
+     */
     function _verifySeller(HeftyVerseSeller memory seller)
         internal
         view
@@ -106,10 +107,10 @@ contract HeftyVerseMarketplace721 is EIP712, CustomAccessControl, BasicMetaTrans
     }
 
     /**
-    *@dev Returns hash ofHeftyVerseBuyer voucher using EIP712 typed data hashing rules.
-    *@param buyer is of data type HeftyVerseBuyer struct.
+     * @notice Returns a hash of the given HeftyVerseBuyer, prepared using EIP712 typed data hashing rules.
+     * @param buyer is a HeftyVerseBuyer to hash.
      */
-     function _hashBuyer(HeftyVerseBuyer memory buyer)
+    function _hashBuyer(HeftyVerseBuyer memory buyer)
         internal
         view
         returns (bytes32)
@@ -119,12 +120,14 @@ contract HeftyVerseMarketplace721 is EIP712, CustomAccessControl, BasicMetaTrans
                 keccak256(
                     abi.encode(
                         keccak256(
-                            "HeftyVerseBuyer(address nftAddress,address buyer,uint256 tokenID,uint256 pricePaid,bool isCustodial)"
+                            "HeftyVerseBuyer(address nftAddress,address buyer,uint256 tokenID,uint256 amount,uint256 pricePaid,uint256 counter,bool isCustodial)"
                         ),
                         buyer.nftAddress,
                         buyer.buyer,
                         buyer.tokenID,
+                        buyer.amount,
                         buyer.pricePaid,
+                        buyer.counter,
                         buyer.isCustodial
                     )
                 )
@@ -132,31 +135,28 @@ contract HeftyVerseMarketplace721 is EIP712, CustomAccessControl, BasicMetaTrans
     }
 
     /**
-    @notice Verifies the signature for a given HeftyVerseBuyer, returning the address of the signer.
-    @dev Will revert if the signature is invalid.
-    @param buyer is of data type HeftyVerseBuyer struct.
-      */
+     * @notice Verifies the signature for a given HeftyVerseBuyer, returning the address of the signer.
+     * @dev Will revert if the signature is invalid.
+     * @param buyer is a HeftyVerseBuyer describing the NFT to be bought
+     */
     function _verifyBuyer(HeftyVerseBuyer memory buyer)
         internal
         view
         returns (address)
     {
-        // console.log("verify",address(buyer.buyer));
         bytes32 digest = _hashBuyer(buyer);
-        // console.log("return from verify",ECDSA.recover(digest, buyer.signature));
         return ECDSA.recover(digest, buyer.signature);
     }
 
     /**
-    @dev checks the wallet types of seller and buyer and call the respective function for the trade.
-    @param seller is of data type HeftyVerseSeller struct representing the NFT to be sold.
-    @param buyer is of data type HeftyVerseBuyer struct representing the NFT to be bought.
-    @param _voucher is of data type NFTVoucher struct from Voucher library representing the NFT that is being traded.
-    */
-    function BuyFixedPrice(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.NFTvoucher memory _voucher) public {
+     * @dev `buyer` and `seller` will be used in case of secondary sell
+     * @dev `seller` and `_voucher` will be used in case of primary sell
+     * @param buyer is a HeftyVerseBuyer describing the NFT to be bought
+     * @param seller is a HeftyVerseSeller describing the NFT to be sold
+     * @param _voucher is a SFTVoucher describing an unminted NFT
+     */
+    function Buy(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher) public {
         require(buyer.nftAddress == seller.nftAddress,"Addresses doesn't match");
-        // require(IERC721(seller.nftAddress).ownerOf(seller.tokenID) == seller.owner, "Seller not onwer of token");
-        // require(seller.isFixedPrice,"not for fixed price");
         require(seller.minPrice <= buyer.pricePaid,"price doesn't match");
         if(buyer.isCustodial == true && seller.isCustodial == true)
             BuyCustodial2Custodial(buyer, seller, _voucher);
@@ -167,32 +167,36 @@ contract HeftyVerseMarketplace721 is EIP712, CustomAccessControl, BasicMetaTrans
         else if(buyer.isCustodial == false && seller.isCustodial == false)
             BuyNonCustodial2NonCustodial(buyer,seller, _voucher);
     }
+
     /**
-    @notice internal function
-    @dev implements primary and secondary buy between sellers' custodial and buyers' custodial wallets.
-    event AmountDistributed emitted.
+     * @notice This is the internal function used in case if both buyer and seller are custodial wallets
+     * @dev `buyer` and `seller` will be used in case of secondary sell
+     * @dev `seller` and `_voucher` will be used in case of primary sell
+     * @param buyer is a HeftyVerseBuyer describing the NFT to be bought
+     * @param seller is a HeftyVerseSeller describing the NFT to be sold
+     * @param _voucher is a SFTVoucher describing an unminted NFT
      */
-    function BuyCustodial2Custodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.NFTvoucher memory _voucher) internal {
-        if(INFTTemplate(address(seller.nftAddress)).exists(seller.tokenID)) {
+    function BuyCustodial2Custodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher) internal {
+        if(INFTTemplate(seller.nftAddress).exists(seller.tokenID)) {
             address signerSeller = _verifySeller(seller);
-            require(address(seller.owner) == signerSeller, "invalid Seller");
+            require(seller.owner == signerSeller, "invalid Seller");
             address signerBuyer = _verifyBuyer(buyer);
-            require(address(buyer.buyer) == signerBuyer,"invalid buyer");
+            require(buyer.buyer == signerBuyer,"invalid buyer");
         
-            require(INFTTemplate(address(seller.nftAddress)).ownerOf(seller.tokenID) == address(seller.owner), "Seller not onwer of token");
+            require(INFTTemplate(seller.nftAddress).ownerOf(seller.tokenID) == seller.owner, "Seller not onwer of token");
             // royalty given
-            (address receiver,uint royaltyAmount) = INFTTemplate(address(seller.nftAddress)).royaltyInfo(seller.tokenID,buyer.pricePaid);
+            (address receiver,uint royaltyAmount) = INFTTemplate(seller.nftAddress).royaltyInfo(seller.tokenID,buyer.pricePaid);
             token.transferFrom(treasury, receiver , royaltyAmount);
             //market fee deducted
             uint fee = (buyer.pricePaid * marketFee) / 10000;
             token.transferFrom(treasury, marketWallet,fee);
             // token transfer
-            INFTTemplate(address(seller.nftAddress)).transferFrom(address(seller.owner), address(buyer.buyer), seller.tokenID);
+            INFTTemplate(seller.nftAddress).transferFrom(seller.owner ,buyer.buyer, seller.tokenID);
         
-            emit AmountDistributed(address(buyer.buyer), buyer.pricePaid, royaltyAmount, fee);
+            emit AmountDistributed(buyer.buyer, buyer.pricePaid, royaltyAmount, fee);
         } else {
             address signerBuyer = _verifyBuyer(buyer);
-            require(address(buyer.buyer) == signerBuyer,"invalid buyer");
+            require(buyer.buyer == signerBuyer,"invalid buyer");
             require(buyer.nftAddress == _voucher.nftAddress,"mismatched addresses");
             require(_voucher.price <= buyer.pricePaid,"invalid price");
            
@@ -200,180 +204,214 @@ contract HeftyVerseMarketplace721 is EIP712, CustomAccessControl, BasicMetaTrans
             uint fee = (buyer.pricePaid * marketFee) / 10000;
             token.transferFrom(treasury, marketWallet,fee);
             //payment to creator
-            token.transferFrom(treasury, INFTTemplate(address(seller.nftAddress)).creator() , buyer.pricePaid -  fee);
+            token.transferFrom(treasury, INFTTemplate(seller.nftAddress).creator() , buyer.pricePaid -  fee);
             // token redeeming
-            INFTTemplate(address(seller.nftAddress)).redeem(_voucher, address(buyer.buyer));
+            INFTTemplate(seller.nftAddress).redeem(_voucher, buyer.buyer);
 
-            emit AmountDistributed(address(buyer.buyer), buyer.pricePaid, 0, fee);
+            emit AmountDistributed(buyer.buyer, buyer.pricePaid, 0, fee);
         }
 
     }
+
     /**
-    @notice internal function
-    @dev implements primary and secondary buy between sellers' custodial and buyers' Non-custodial wallets.
-    event AmountDistributed emitted.
+     * @notice This is the internal function used in case if seller is a custodial wallet and buyer is non-custodial wallet
+     * @dev `buyer` and `seller` will be used in case of secondary sell
+     * @dev `seller` and `_voucher` will be used in case of primary sell
+     * @param buyer is a HeftyVerseBuyer describing the NFT to be bought
+     * @param seller is a HeftyVerseSeller describing the NFT to be sold
+     * @param _voucher is a SFTVoucher describing an unminted NFT
      */
-    function BuyCustodial2NonCustodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.NFTvoucher memory _voucher) internal {
-        if(INFTTemplate(address(seller.nftAddress)).exists(seller.tokenID)) {
+    function BuyCustodial2NonCustodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher) internal {
+        if(INFTTemplate(seller.nftAddress).exists(seller.tokenID)) {
             address signerSeller = _verifySeller(seller);
-            require(address(seller.owner) == signerSeller, "invalid Seller");
+            require(seller.owner == signerSeller, "invalid Seller");
             address signerBuyer = _verifyBuyer(buyer);
-            require(address(buyer.buyer) == signerBuyer,"invalid buyer");
+            require(buyer.buyer == signerBuyer,"invalid buyer");
+
+            require(INFTTemplate(seller.nftAddress).ownerOf(seller.tokenID) == seller.owner, "Seller not onwer of token");
             // royalty given
-            (address receiver,uint royaltyAmount) = INFTTemplate(address(seller.nftAddress)).royaltyInfo(seller.tokenID,buyer.pricePaid);
-            token.transferFrom(address(buyer.buyer), receiver , royaltyAmount);
+            (address receiver,uint royaltyAmount) = INFTTemplate(seller.nftAddress).royaltyInfo(seller.tokenID,buyer.pricePaid);
+            token.transferFrom(buyer.buyer, receiver , royaltyAmount);
             //market fee deducted
             uint fee = (buyer.pricePaid * marketFee) / 10000;
-            token.transferFrom(address(buyer.buyer), marketWallet,fee);
+            token.transferFrom(buyer.buyer, marketWallet,fee);
             //payment transfer
-            token.transferFrom(address(buyer.buyer), treasury, buyer.pricePaid - (royaltyAmount+ fee));
+            token.transferFrom(buyer.buyer, treasury, buyer.pricePaid - (royaltyAmount+ fee));
             // nft transfer
-            INFTTemplate(address(seller.nftAddress)).transferFrom(address(seller.owner), address(buyer.buyer), seller.tokenID);
+            INFTTemplate(seller.nftAddress).transferFrom(seller.owner, buyer.buyer, seller.tokenID);
 
-            emit AmountDistributed(address(buyer.buyer), buyer.pricePaid, royaltyAmount, fee);
+            emit AmountDistributed(buyer.buyer, buyer.pricePaid, royaltyAmount, fee);
         } else {
             address signerBuyer = _verifyBuyer(buyer);
-            require(address(buyer.buyer) == signerBuyer,"invalid buyer");
-            require(address(buyer.nftAddress) == address(_voucher.nftAddress),"mismatched addresses");
+            require(buyer.buyer == signerBuyer,"invalid buyer");
+            require(buyer.nftAddress == _voucher.nftAddress,"mismatched addresses");
             require(_voucher.price <= buyer.pricePaid,"invalid price");
 
             //market fee deducted
             uint fee = (buyer.pricePaid * marketFee) / 10000;
-            token.transferFrom(address(buyer.buyer), marketWallet,fee);
+            token.transferFrom(buyer.buyer, marketWallet,fee);
             //payment transfer
-            token.transferFrom(address(buyer.buyer), INFTTemplate(address(seller.nftAddress)).creator(), buyer.pricePaid - fee);
+            token.transferFrom(buyer.buyer, INFTTemplate(seller.nftAddress).creator(), buyer.pricePaid - fee);
             // token redeeming
-            INFTTemplate(address(seller.nftAddress)).redeem(_voucher, address(buyer.buyer));
+            INFTTemplate(seller.nftAddress).redeem(_voucher, buyer.buyer);
 
-            emit AmountDistributed(address(buyer.buyer), buyer.pricePaid, 0, fee);
+            emit AmountDistributed(buyer.buyer, buyer.pricePaid, 0, fee);
         }
     }
+
     /**
-    @notice internal function
-    @dev implements primary and secondary buy between sellers' Non-custodial and buyers' custodial wallets.
-    event AmountDistributed emitted.
+     * @notice This is the internal function used in case if seller is a non-custodial wallet and buyer is custodial wallet
+     * @dev `buyer` and `seller` will be used in case of secondary sell
+     * @dev `seller` and `_voucher` will be used in case of primary sell
+     * @param buyer is a HeftyVerseBuyer describing the NFT to be bought
+     * @param seller is a HeftyVerseSeller describing the NFT to be sold
+     * @param _voucher is a SFTVoucher describing an unminted NFT
      */
-    function BuyNonCustodial2Custodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.NFTvoucher memory _voucher) internal {
-        if(INFTTemplate(address(seller.nftAddress)).exists(seller.tokenID)) {
+    function BuyNonCustodial2Custodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher) internal {
+        if(INFTTemplate(seller.nftAddress).exists(seller.tokenID)) {
             address signerSeller = _verifySeller(seller);
-            require(address(seller.owner) == signerSeller, "invalid Seller");
+            require(seller.owner == signerSeller, "invalid Seller");
             address signerBuyer = _verifyBuyer(buyer);
-            require(address(buyer.buyer) == signerBuyer,"invalid buyer");
+            require(buyer.buyer == signerBuyer,"invalid buyer");
+
+            require(INFTTemplate(seller.nftAddress).ownerOf(seller.tokenID) == seller.owner, "Seller not onwer of token");
             // royalty given
-            (address receiver,uint royaltyAmount) = INFTTemplate(address(seller.nftAddress)).royaltyInfo(seller.tokenID,buyer.pricePaid);
+            (address receiver,uint royaltyAmount) = INFTTemplate(seller.nftAddress).royaltyInfo(seller.tokenID,buyer.pricePaid);
             token.transferFrom(treasury, receiver , royaltyAmount);
             //market fee deducted
             uint fee = (buyer.pricePaid * marketFee) / 10000;
             token.transferFrom(treasury, marketWallet,fee);
             //payment transfer
-            token.transferFrom(treasury, address(seller.owner), buyer.pricePaid - (royaltyAmount+ fee));
+            token.transferFrom(treasury, seller.owner, buyer.pricePaid - (royaltyAmount+ fee));
             //nft transfer
-            INFTTemplate(address(seller.nftAddress)).transferFrom(address(seller.owner), address(buyer.buyer), seller.tokenID);
+            INFTTemplate(seller.nftAddress).transferFrom(seller.owner, buyer.buyer, seller.tokenID);
 
-            emit AmountDistributed(address(buyer.buyer), buyer.pricePaid, royaltyAmount, fee);
+            emit AmountDistributed(buyer.buyer, buyer.pricePaid, royaltyAmount, fee);
         } else {
             address signerBuyer = _verifyBuyer(buyer);
-            require(address(buyer.buyer) == signerBuyer,"invalid buyer");
-            require(address(buyer.nftAddress) == address(_voucher.nftAddress),"mismatched addresses");
+            require(buyer.buyer == signerBuyer,"invalid buyer");
+            require(buyer.nftAddress == _voucher.nftAddress,"mismatched addresses");
             require(_voucher.price <= buyer.pricePaid,"invalid price");
 
             //market fee deducted
             uint fee = (buyer.pricePaid * marketFee) / 10000;
             token.transferFrom(treasury, marketWallet,fee);
             // token redeeming
-            INFTTemplate(address(seller.nftAddress)).redeem(_voucher, address(buyer.buyer));
+            INFTTemplate(seller.nftAddress).redeem(_voucher,buyer.buyer);
 
-            emit AmountDistributed(address(buyer.buyer), buyer.pricePaid, 0, fee);
+            emit AmountDistributed(buyer.buyer, buyer.pricePaid, 0, fee);
         }
     }
 
     /**
-    @notice internal function
-    @dev implements primary and secondary buy between sellers' Non-custodial and buyers' Non-custodial wallets.
-        event AmountDistributed emitted.
+     * @notice This is the internal function used in case if seller is a non-custodial wallet and buyer is also non-custodial wallet
+     * @dev `buyer` and `seller` will be used in case of secondary sell
+     * @dev `seller` and `_voucher` will be used in case of primary sell
+     * @param buyer is a HeftyVerseBuyer describing the NFT to be bought
+     * @param seller is a HeftyVerseSeller describing the NFT to be sold
+     * @param _voucher is a SFTVoucher describing an unminted NFT
      */
-
-    function BuyNonCustodial2NonCustodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.NFTvoucher memory _voucher) internal {
-        if(INFTTemplate(address(seller.nftAddress)).exists(seller.tokenID)) {
+    function BuyNonCustodial2NonCustodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher) internal {
+        if(INFTTemplate(seller.nftAddress).exists(seller.tokenID)) {
             address signerSeller = _verifySeller(seller);
-            require(address(seller.owner) == signerSeller, "invalid Seller");
+            require(seller.owner == signerSeller, "invalid Seller");
             address signerBuyer = _verifyBuyer(buyer);
-            require(address(buyer.buyer) == signerBuyer,"invalid buyer");
+            require(buyer.buyer == signerBuyer,"invalid buyer");
             // royalty given
-            (address receiver,uint royaltyAmount) = INFTTemplate(address(seller.nftAddress)).royaltyInfo(seller.tokenID,buyer.pricePaid);
-            token.transferFrom(address(buyer.buyer), receiver , royaltyAmount); 
+            (address receiver,uint royaltyAmount) = INFTTemplate(seller.nftAddress).royaltyInfo(seller.tokenID,buyer.pricePaid);
+            token.transferFrom(buyer.buyer, receiver , royaltyAmount); 
             //market fee deducted
             uint fee = (buyer.pricePaid * marketFee) / 10000;
-            token.transferFrom(address(buyer.buyer), marketWallet,fee);
+            token.transferFrom(buyer.buyer, marketWallet,fee);
             //payment transfer
-            token.transferFrom(address(buyer.buyer), address(seller.owner), buyer.pricePaid - (royaltyAmount+ fee));
+            token.transferFrom(buyer.buyer, seller.owner, buyer.pricePaid - (royaltyAmount+ fee));
             //nft transfer
-            INFTTemplate(address(seller.nftAddress)).transferFrom(address(seller.owner), address(buyer.buyer), seller.tokenID);
+            INFTTemplate(seller.nftAddress).transferFrom(seller.owner, buyer.buyer, seller.tokenID);
 
-            emit AmountDistributed(address(buyer.buyer), buyer.pricePaid, royaltyAmount, fee);
+            emit AmountDistributed(buyer.buyer, buyer.pricePaid, royaltyAmount, fee);
         } else {
-             address signerBuyer = _verifyBuyer(buyer);
-            require(address(buyer.buyer) == signerBuyer,"invalid buyer");
-            require(address(buyer.nftAddress) == address(_voucher.nftAddress),"mismatched addresses");
+            address signerBuyer = _verifyBuyer(buyer);
+            require(buyer.buyer == signerBuyer,"invalid buyer");
+            require(buyer.nftAddress == _voucher.nftAddress,"mismatched addresses");
             require(_voucher.price <= buyer.pricePaid,"invalid price");
 
             //market fee deducted
             uint fee = (buyer.pricePaid * marketFee) / 10000;
-            token.transferFrom(address(buyer.buyer), marketWallet,fee);
+            token.transferFrom(buyer.buyer, marketWallet,fee);
             //payment transfer
-            token.transferFrom(address(buyer.buyer), address(seller.owner), buyer.pricePaid - fee);
-            INFTTemplate(address(seller.nftAddress)).redeem(_voucher, address(buyer.buyer));
-            emit AmountDistributed(address(buyer.buyer), buyer.pricePaid, 0, fee);
+            token.transferFrom(buyer.buyer, seller.owner, buyer.pricePaid - fee);
+            // token redeeming
+            INFTTemplate(buyer.nftAddress).redeem(_voucher, buyer.buyer);
+
+            emit AmountDistributed(buyer.buyer, buyer.pricePaid, 0, fee);
         }
     }
 
     /**
-    @dev sets ERC20 token contract address
-    @param _token is ERC20 token contract address.
+     * @notice Function to set new token for buy/sell in the marketplace
+     * @param _token is the new token which will be used for buy/sell in the marketplace
      */
-    function setToken(address _token) external onlyRole(OPERATOR_ROLE) {
+    function setToken(address _token) external {
+        require(msg.sender == admin,"not admin");
         require(_token != address(0),"zero address sent");
         token = IERC20(_token);
     }
 
     /**
-    @dev sets market fee wallet address
-    @param _wallet is address of market fee wallet */
-    function setMarketingWallet(address _wallet) external onlyRole(OPERATOR_ROLE) {
+     * @notice Function to set new address for market wallet
+     * @param _wallet is the new wallet address where marketplace fee will be sent
+     */
+    function setMarketingWallet(address _wallet) external {
+        require(msg.sender == admin,"not admin");
         require(_wallet != address(0),"zero address sent");
         marketWallet = _wallet;
     }
     
     /**
-    @dev sets treasury address 
-    @param _wallet is treasury address */
-    function settreasury(address _wallet) external onlyRole(OPERATOR_ROLE) {
+     * @notice Function to set new address for market wallet
+     * @param _wallet is the new wallet address where marketplace fee will be sent
+     */
+    function settreasury(address _wallet) external {
+        require(msg.sender == admin,"not admin");
         require(_wallet != address(0),"zero address sent");
         treasury = _wallet;
     }
 
     /**
-    @dev sets amount for market fee
-    @param _fee is amount for fee */
-    function setMarketFee(uint _fee) external onlyRole(OPERATOR_ROLE) {
+     * @notice Function to set new marketplace fee in bps
+     * @param _fee is the new marketplace fee
+     */
+    function setMarketFee(uint _fee) external {
+        require(msg.sender == admin,"not admin");
         require(_fee <= 10000, "invalid value");
         marketFee = _fee;
     }
 
     /**
-    @dev withdraws token that are accidently sent to the contract. 
-    @param _token is address of ERC20 token that is stuck.
-    @param _amount is the amount that is stuck.*/
-    function withdrawStuckToken(address _token, uint256 _amount) public onlyRole(OPERATOR_ROLE) {
-        require(_token!=address(0),"Zero address");
+     * @notice Function to withdraw stuck tokens from the contract
+     * @param _token is the token to be withdrawn
+     * @param _amount is the amount to be withdrawn
+     */
+    function withdrawStuckToken(address _token, uint256 _amount) public {
+        require(msg.sender == admin,"not admin");
         IERC20(_token).transfer(msg.sender, _amount);
         emit TokenWithdrawn(_amount);
     }
 
+    /**
+     * @notice Function to set new admin of the contract
+     * @param _admin is the new admin of the contract
+     */
+    function transferAdminRole(address _admin) external {
+        require(_admin!=address(0),"Zero address sent");
+        require(msg.sender == admin,"not admin");
+        admin = _admin;
+    }
+    
     function _msgSender()
         internal
         view
-        override(Context,BasicMetaTransaction)
+        override(BasicMetaTransaction)
         returns (address sender)
     {
         return super._msgSender();

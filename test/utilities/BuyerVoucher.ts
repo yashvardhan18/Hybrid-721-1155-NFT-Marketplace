@@ -25,17 +25,29 @@ class BuyerVoucher {
     nftAddress: any,
     buyer: any,
     tokenID: any,
+    amount: any,
     pricePaid: any,
+    counter: any,
     isCustodial: any
   ) {
-    const voucher = { nftAddress, buyer, tokenID, pricePaid, isCustodial };
+    const voucher = {
+      nftAddress,
+      buyer,
+      tokenID,
+      amount,
+      pricePaid,
+      counter,
+      isCustodial,
+    };
     const domain = await this._signingDomain();
     const types = {
       HeftyVerseBuyer: [
         { name: "nftAddress", type: "address" },
         { name: "buyer", type: "address" },
         { name: "tokenID", type: "uint256" },
+        { name: "amount", type: "uint256" },
         { name: "pricePaid", type: "uint256" },
+        { name: "counter", type: "uint256" },
         { name: "isCustodial", type: "bool" },
       ],
     };
