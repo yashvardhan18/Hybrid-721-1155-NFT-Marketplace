@@ -163,20 +163,20 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
      * @param seller is a HeftyVerseSeller describing the NFT to be sold
      * @param _voucher is a SFTvoucher describing an unminted NFT
      */
-    function Buy(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher, bool isNFT) public {
+    function Buy(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher,Voucher.NFTvoucher memory _voucherNFT, bool isNFT) public {
         require(buyer.nftAddress == seller.nftAddress,"Addresses invalid");
         require(buyer.counter == seller.counter && seller.counter == _voucher.counter,"Counters invalid");
         require(buyer.amount == seller.amount && seller.amount == _voucher.amount,"Amounts invalid");
         require(seller.minPrice <= buyer.pricePaid,"Prices invalid");
 
         if(buyer.isCustodial == true && seller.isCustodial == true)
-            BuyCustodial2Custodial(buyer, seller, _voucher, isNFT);
+            BuyCustodial2Custodial(buyer, seller, _voucher,_voucherNFT, isNFT);
         else if(buyer.isCustodial == true && seller.isCustodial == false)
-            BuyNonCustodial2Custodial(buyer,seller, _voucher, isNFT);
+            BuyNonCustodial2Custodial(buyer,seller, _voucher,_voucherNFT, isNFT);
         else if(buyer.isCustodial == false && seller.isCustodial == true)
-            BuyCustodial2NonCustodial(buyer,seller, _voucher, isNFT);
+            BuyCustodial2NonCustodial(buyer,seller, _voucher,_voucherNFT, isNFT);
         else if(buyer.isCustodial == false && seller.isCustodial == false)
-            BuyNonCustodial2NonCustodial(buyer,seller, _voucher, isNFT);
+            BuyNonCustodial2NonCustodial(buyer,seller, _voucher,_voucherNFT, isNFT);
     }
 
     /**
@@ -187,8 +187,8 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
      * @param seller is a HeftyVerseSeller describing the NFT to be sold
      * @param _voucher is a SFTVoucher describing an unminted NFT
      */
-    function BuyCustodial2Custodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher, bool isNFT) internal {
-        if(!_voucher.toMint) {
+    function BuyCustodial2Custodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher,Voucher.NFTvoucher memory _voucherNFT, bool isNFT) internal {
+        if(!_voucher.toMint && !_voucherNFT.toMint) {
             verifySecondary(buyer,seller);
 
             setCounter(buyer, seller);
@@ -220,7 +220,7 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
         } else {
             verifyPrimary(seller,buyer, _voucher);
             
-             setCounter(buyer, seller);
+             
            
             //market fee deducted
             uint fee = (buyer.pricePaid * marketFee) / 10000;
@@ -230,10 +230,11 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
             // token redeeming
             if(isNFT)
             {
-            INFTTemplate(seller.nftAddress).redeem(_voucher, buyer.buyer);
+                INFTTemplate(seller.nftAddress).redeem(_voucherNFT, buyer.buyer);
             }
             else
             {
+                setCounter(buyer, seller);
                 ISFTTemplate(seller.nftAddress).redeem(_voucher, buyer.buyer, buyer.amount);
             }
 
@@ -250,8 +251,8 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
      * @param seller is a HeftyVerseSeller describing the NFT to be sold
      * @param _voucher is a SFTVoucher describing an unminted NFT
      */
-    function BuyCustodial2NonCustodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher, bool isNFT) internal {
-        if(!_voucher.toMint) {
+    function BuyCustodial2NonCustodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher,Voucher.NFTvoucher memory _voucherNFT, bool isNFT) internal {
+        if(!_voucher.toMint && !_voucherNFT.toMint) {
             verifySecondary(buyer,seller);
 
             setCounter(buyer, seller);
@@ -284,7 +285,7 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
         } else {
             verifyPrimary(seller,buyer, _voucher);
             
-             setCounter(buyer, seller);
+            
 
             //market fee deducted
             uint fee = (buyer.pricePaid * marketFee) / 10000;
@@ -294,10 +295,11 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
             // token redeeming
             if(isNFT)
             {
-            INFTTemplate(seller.nftAddress).redeem(_voucher, buyer.buyer);
+            INFTTemplate(seller.nftAddress).redeem(_voucherNFT, buyer.buyer);
             }
             else
             {
+                setCounter(buyer, seller);
                 ISFTTemplate(seller.nftAddress).redeem(_voucher, buyer.buyer, buyer.amount);
             }
 
@@ -313,8 +315,8 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
      * @param seller is a HeftyVerseSeller describing the NFT to be sold
      * @param _voucher is a SFTVoucher describing an unminted NFT
      */
-    function BuyNonCustodial2Custodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher, bool isNFT) internal {
-        if(!_voucher.toMint) {
+    function BuyNonCustodial2Custodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher,Voucher.NFTvoucher memory _voucherNFT, bool isNFT) internal {
+        if(!_voucher.toMint && !_voucherNFT.toMint) {
             verifySecondary(buyer,seller);
             
             setCounter(buyer, seller);
@@ -348,7 +350,7 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
         } else {
             verifyPrimary(seller,buyer, _voucher);
             
-             setCounter(buyer, seller);
+            
 
             //market fee deducted
             uint fee = (buyer.pricePaid * marketFee) / 10000;
@@ -356,10 +358,11 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
             // token redeeming
             if(isNFT)
             {
-            INFTTemplate(seller.nftAddress).redeem(_voucher, buyer.buyer);
+                INFTTemplate(seller.nftAddress).redeem(_voucherNFT, buyer.buyer);
             }
             else
             {
+                setCounter(buyer, seller);
                 ISFTTemplate(seller.nftAddress).redeem(_voucher, buyer.buyer, buyer.amount);
             }
 
@@ -375,8 +378,8 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
      * @param seller is a HeftyVerseSeller describing the NFT to be sold
      * @param _voucher is a SFTVoucher describing an unminted NFT
      */
-    function BuyNonCustodial2NonCustodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher, bool isNFT) internal {
-        if(!_voucher.toMint) {
+    function BuyNonCustodial2NonCustodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher,Voucher.NFTvoucher memory _voucherNFT, bool isNFT) internal {
+        if(!_voucher.toMint && !_voucherNFT.toMint) {
             verifySecondary(buyer,seller);
 
             setCounter(buyer, seller);
@@ -409,7 +412,7 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
         } else {
             verifyPrimary(seller,buyer, _voucher);
             
-             setCounter(buyer, seller);
+            
 
             //market fee deducted
             uint fee = (buyer.pricePaid * marketFee) / 10000;
@@ -419,10 +422,11 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
             // token redeeming
             if(isNFT)
             {
-            INFTTemplate(seller.nftAddress).redeem(_voucher, buyer.buyer);
+                INFTTemplate(seller.nftAddress).redeem(_voucherNFT, buyer.buyer);
             }
             else
             {
+                setCounter(buyer, seller);
                 ISFTTemplate(seller.nftAddress).redeem(_voucher, buyer.buyer, buyer.amount);
             }
 
@@ -441,7 +445,7 @@ contract SingleMarket is EIP712, BasicMetaTransaction {
     function verifyPrimary(HeftyVerseSeller memory seller,HeftyVerseBuyer memory buyer, Voucher.SFTvoucher memory _voucher) internal view {
         address signerSeller = _verifySeller(seller);
         address signerBuyer = _verifyBuyer(buyer);
-        require(seller.owner == signerBuyer,"invalid signer");
+        require(seller.owner == signerSeller,"invalid Seller");
         require(buyer.buyer == signerBuyer,"invalid buyer");
         require(buyer.nftAddress == _voucher.nftAddress&&seller.nftAddress == _voucher.nftAddress,"invalid addresses");
         require(_voucher.price <= buyer.pricePaid,"invalid price");

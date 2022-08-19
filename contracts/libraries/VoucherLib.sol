@@ -7,6 +7,7 @@ library Voucher {
         uint256 tokenId;        // Token ID of the NFT
         uint256 price;          // Primary sale price of the NFT
         string tokenUri;        // Token URI of the NFT
+        bool toMint;            // Bool to check if voucher is used for minting 
         address royaltyKeeper;  // Royalty Receiver address
         uint96 royaltyFees;     // Royalty percentage
         bytes signature;        // Signature created after signing NFTvoucher

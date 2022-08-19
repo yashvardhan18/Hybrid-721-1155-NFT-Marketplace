@@ -23,6 +23,12 @@ async function main() {
       contract: "contracts/Factory.sol:TokenFactory",
     });
 
+    await Hre.run("verify:verify", {
+      //Deployed contract Temp1155 address
+      address: "0x000",
+      //Path of your main contract.
+      contract: "contracts/Template1155.sol:Template1155",
+    });
 }
 main()
 .then(() => process.exit(0))

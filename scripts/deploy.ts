@@ -25,11 +25,13 @@ async function fmain () {
         usdt : "0x78A15406D295F461d0970Cda8032B9cF4a2796dd",
         templateContract : "0x086FF591e5902fFBB55DeE052AF58A8B0Ca61105",
         factory : "0xab252592f0DDa4067c45da19bce574Bda10e3652", 
+        temp1155 : "",
     }
 
     let USDT = await ethers.getContractFactory("Usd");
     let TemplateContract = await ethers.getContractFactory("Template");
     let Factory = await ethers.getContractFactory("TokenFactory");
+    let Temp1155 = await ethers.getContractFactory("Template1155");
 
     // let usdt = await USDT.deploy();
     let usdt = await USDT.attach(testnet.usdt);
@@ -43,9 +45,15 @@ async function fmain () {
     // let factory = await Factory.deploy();
     let factory = await Factory.attach(testnet.factory);
     console.log("factory",factory.address);
-    // await factory.initialize(templateContract.address);
-    await factory.create721Token("HeftyVerse","ERC721",s1,s2,usdt.address,marketPlace);
-}
+    await factory.initialize(templateContract.address);
+    // await factory.create721Token("HeftyVerse","ERC721",s1,s2,usdt.address,marketPlace);
+    
+    
+    let temp1155 = await Temp1155.deploy();
+    // let temp1155 = await Temp1155.attach(testnet.temp1155);
+    console.log("Temp1155",temp1155.address);
+    await temp1155.initialize(s1,s2,usdt.address,factory.address);
+  }
 
 fmain()
   .then(() => process.exit(0))

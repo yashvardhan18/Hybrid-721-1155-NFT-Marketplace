@@ -60,16 +60,14 @@ contract Template is ERC721URIStorageUpgradeable, ERC2981Upgradeable, EIP712Upgr
         }
     }
 
-    function _hash(Voucher.SFTvoucher calldata voucher) internal view returns (bytes32) {
+    function _hash(Voucher.NFTvoucher calldata voucher) internal view returns (bytes32) {
         return _hashTypedDataV4(keccak256(abi.encode(
             keccak256(
-                "SFTvoucher(address nftAddress,uint256 tokenId,uint256 price,uint256 amount,uint256 counter,string tokenUri,bool toMint,address royaltyKeeper,uint96 royaltyFees)"
+                "NFTvoucher(address nftAddress,uint256 tokenId,uint256 price,string tokenUri,bool toMint,address royaltyKeeper,uint96 royaltyFees)"
             ),
             voucher.nftAddress,
             voucher.tokenId,
             voucher.price,
-            voucher.amount,
-            voucher.counter,
             keccak256(bytes(voucher.tokenUri)),
             voucher.toMint,
             voucher.royaltyKeeper,
@@ -78,7 +76,7 @@ contract Template is ERC721URIStorageUpgradeable, ERC2981Upgradeable, EIP712Upgr
         ));
     }
 
-    function _verify(Voucher.SFTvoucher calldata voucher)
+    function _verify(Voucher.NFTvoucher calldata voucher)
         internal
         view
         returns (address)
@@ -87,7 +85,7 @@ contract Template is ERC721URIStorageUpgradeable, ERC2981Upgradeable, EIP712Upgr
         return ECDSAUpgradeable.recover(digest, voucher.signature);
     }
 
-    function redeem(Voucher.SFTvoucher calldata _voucher, address redeemer) public {
+    function redeem(Voucher.NFTvoucher calldata _voucher, address redeemer) public {
         require(address(_voucher.nftAddress) == address(this),"invalid address");
         address signer = _verify(_voucher);
         require(signer == admin || signer == creator,"invalid signer");

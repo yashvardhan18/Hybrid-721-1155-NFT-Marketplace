@@ -153,9 +153,9 @@ contract HeftyVerseMarketplace721 is EIP712, BasicMetaTransaction {
      * @dev `seller` and `_voucher` will be used in case of primary sell
      * @param buyer is a HeftyVerseBuyer describing the NFT to be bought
      * @param seller is a HeftyVerseSeller describing the NFT to be sold
-     * @param _voucher is a SFTVoucher describing an unminted NFT
+     * @param _voucher is a NFTvoucher describing an unminted NFT
      */
-    function Buy(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher) public {
+    function Buy(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.NFTvoucher memory _voucher) public {
         require(buyer.nftAddress == seller.nftAddress,"Addresses doesn't match");
         require(seller.minPrice <= buyer.pricePaid,"price doesn't match");
         if(buyer.isCustodial == true && seller.isCustodial == true)
@@ -174,9 +174,9 @@ contract HeftyVerseMarketplace721 is EIP712, BasicMetaTransaction {
      * @dev `seller` and `_voucher` will be used in case of primary sell
      * @param buyer is a HeftyVerseBuyer describing the NFT to be bought
      * @param seller is a HeftyVerseSeller describing the NFT to be sold
-     * @param _voucher is a SFTVoucher describing an unminted NFT
+     * @param _voucher is a NFTvoucher describing an unminted NFT
      */
-    function BuyCustodial2Custodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher) internal {
+    function BuyCustodial2Custodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.NFTvoucher memory _voucher) internal {
         if(INFTTemplate(seller.nftAddress).exists(seller.tokenID)) {
             address signerSeller = _verifySeller(seller);
             require(seller.owner == signerSeller, "invalid Seller");
@@ -219,9 +219,9 @@ contract HeftyVerseMarketplace721 is EIP712, BasicMetaTransaction {
      * @dev `seller` and `_voucher` will be used in case of primary sell
      * @param buyer is a HeftyVerseBuyer describing the NFT to be bought
      * @param seller is a HeftyVerseSeller describing the NFT to be sold
-     * @param _voucher is a SFTVoucher describing an unminted NFT
+     * @param _voucher is a NFTvoucher describing an unminted NFT
      */
-    function BuyCustodial2NonCustodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher) internal {
+    function BuyCustodial2NonCustodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.NFTvoucher memory _voucher) internal {
         if(INFTTemplate(seller.nftAddress).exists(seller.tokenID)) {
             address signerSeller = _verifySeller(seller);
             require(seller.owner == signerSeller, "invalid Seller");
@@ -265,9 +265,9 @@ contract HeftyVerseMarketplace721 is EIP712, BasicMetaTransaction {
      * @dev `seller` and `_voucher` will be used in case of primary sell
      * @param buyer is a HeftyVerseBuyer describing the NFT to be bought
      * @param seller is a HeftyVerseSeller describing the NFT to be sold
-     * @param _voucher is a SFTVoucher describing an unminted NFT
+     * @param _voucher is a NFTvoucher describing an unminted NFT
      */
-    function BuyNonCustodial2Custodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher) internal {
+    function BuyNonCustodial2Custodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.NFTvoucher memory _voucher) internal {
         if(INFTTemplate(seller.nftAddress).exists(seller.tokenID)) {
             address signerSeller = _verifySeller(seller);
             require(seller.owner == signerSeller, "invalid Seller");
@@ -309,9 +309,9 @@ contract HeftyVerseMarketplace721 is EIP712, BasicMetaTransaction {
      * @dev `seller` and `_voucher` will be used in case of primary sell
      * @param buyer is a HeftyVerseBuyer describing the NFT to be bought
      * @param seller is a HeftyVerseSeller describing the NFT to be sold
-     * @param _voucher is a SFTVoucher describing an unminted NFT
+     * @param _voucher is a NFTvoucher describing an unminted NFT
      */
-    function BuyNonCustodial2NonCustodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.SFTvoucher memory _voucher) internal {
+    function BuyNonCustodial2NonCustodial(HeftyVerseBuyer memory buyer,HeftyVerseSeller memory seller, Voucher.NFTvoucher memory _voucher) internal {
         if(INFTTemplate(seller.nftAddress).exists(seller.tokenID)) {
             address signerSeller = _verifySeller(seller);
             require(seller.owner == signerSeller, "invalid Seller");

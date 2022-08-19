@@ -5,6 +5,7 @@ import "hardhat-gas-reporter";
 import "@nomiclabs/hardhat-etherscan";
 import dotenv from "dotenv";
 require('hardhat-contract-sizer');
+require('solidity-coverage');
 
 dotenv.config();
 task("accounts", "Prints the list of accounts", async (args, hre) => {
@@ -22,7 +23,7 @@ export default {
   //   disambiguatePaths: false,
   //   runOnCompile: true,
   //   strict: true,
-  //   only:['Factory','Marketplace721','Marketplace1155','Template721','Template1155']
+  //   only:['Factory','SingleMarket','Template721','Template1155']
   // },
 
 
